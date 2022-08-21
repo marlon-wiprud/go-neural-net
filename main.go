@@ -143,8 +143,11 @@ func (nn *Network) backProp(inputs [NUM_INPUTS]float64, outputs [NUM_OUTPUTS]flo
 	// BACKPROP
 	// compute change in output weights
 	var deltaOutput [NUM_OUTPUTS]float64
+
+	// loop through output layer (1)
 	for j := 0; j < NUM_OUTPUTS; j++ {
 
+		// expected output - actual output
 		dErr := (outputs[j] - nn.outputLayer[j])
 		errs = append(errs, dErr)
 		// log.Printf("calc_err %f %f %f", outputs[j], nn.outputLayer[j], dErr)
@@ -153,9 +156,12 @@ func (nn *Network) backProp(inputs [NUM_INPUTS]float64, outputs [NUM_OUTPUTS]flo
 	}
 
 	// compute change in hidden weights
+
 	var deltaHidden [NUM_HIDDEN_NODES]float64
+	// loop thru hidden layer (2)
 	for j := 0; j < NUM_HIDDEN_NODES; j++ {
 		var dErr float64
+		// loop through hidden layer (1)
 		for k := 0; k < NUM_OUTPUTS; k++ {
 			dErr += deltaOutput[k] * nn.outputWeights[j][k]
 		}
@@ -232,9 +238,10 @@ func (nn *Network) predict(input [NUM_INPUTS]float64) [NUM_OUTPUTS]float64 {
 }
 
 func main() {
-	nn := NewNetwork(10000, 0.1)
-	nn.initWeights()
-	nn.epochs()
-	outputLayer := nn.predict([NUM_INPUTS]float64{1, 1})
-	log.Printf("predicted: %v", outputLayer)
+	// nn := NewNetwork(10000, 0.1)
+	// nn.initWeights()
+	// nn.epochs()
+	// outputLayer := nn.predict([NUM_INPUTS]float64{1, 1})
+	// log.Printf("predicted: %v", outputLayer)
+	RunNetwork()
 }
