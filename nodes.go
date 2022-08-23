@@ -1,6 +1,8 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Node struct {
 	weights    []float64
@@ -51,38 +53,49 @@ func (layer *Layer) ForwardPass(inputs []float64) []float64 {
 	return layerOutput
 }
 
-func (layer *Layer) BackPropInit(inDelta []float64, learningRate float64) (outDelta []float64) {
-	// fmt.Println("len: ", len(inDelta), len(layer.nodes))
+func (layer *Layer) BackPropInit(inDelta []float64, learningRate float64, nextLayer *Layer) (outDelta []float64) {
 
 	// loop through each node in the layer
 	for idx, node := range layer.nodes {
-		// loop through the delta values
-		// fmt.Println("calc...")
-		// create output delta values based on the nodes activation
-		// input deltas
-
-		// assumes that in delta is the same length as nodes
-		// TODO return error if not
+		// create output delta values based on the nodes activation and input deltas
+		// note that this assumes that in delta is the same length as nodes
+		// TODO return error if not same lenth
 		e := inDelta[idx] - node.activation
-		od := e * dSigmoid(node.activation)
-		outDelta = append(outDelta, od)
-		// out delta and number of nodes should be the same length
-		// fmt.Println("apply len: ", len(layer.nodes), len(outDelta))
-		// node.bias += od * learningRate
+		d := e * dSigmoid(node.activation)
+
+		// build input for the next layer
+		outDelta = append(outDelta, d)
+
+		// apply change in output weights
+		node.bias += d * learningRate
+
+		for nIdx, n := range nextLayer.nodes {
+			// assumes that node weights are same length as next layers nodes ???
+			node.weights[nIdx] += n.activation * d * learningRate
+		}
 	}
 
 	return outDelta
 }
 
-func (layer *Layer) Backprop(inDelta []float64, lerningRate float64) (outDelta []float64) {
+func (layer *Layer) Backprop(inDelta []float64, learningRate float64, nextLayer *Layer) (outDelta []float64) {
 	for _, node := range layer.nodes {
 		var err float64
 
+		// compute error
 		for idx, id := range inDelta {
 			err += id * node.weights[idx]
 		}
 
-		outDelta = append(outDelta, err)
+		d := err * dSigmoid(node.activation)
+
+		outDelta = append(outDelta, d)
+
+		node.bias += d * learningRate
+
+		for nIdx, n := range nextLayer.nodes {
+			node.weights[nIdx] += n.activation * d * learningRate
+		}
 	}
 
 	return outDelta
@@ -102,6 +115,23 @@ func (nn *NeuralNet) ForwardPass(inputs []float64) {
 	}
 }
 
+func (nn *NeuralNet) getNextBackpropLayer(currentIdx int, inputs []float64) *Layer {
+	if currentIdx > 0 {
+		return nn.layers[currentIdx-1]
+	}
+	return nn.inputAsLayer(inputs)
+}
+
+func (nn *NeuralNet) inputAsLayer(inputs []float64) *Layer {
+	layer := new(Layer)
+
+	for _, input := range inputs {
+		layer.nodes = append(layer.nodes, &Node{activation: input})
+	}
+
+	return layer
+}
+
 func (nn *NeuralNet) BackwardPass(trainingInput []float64, trainingOutput []float64) {
 	numLayers := len(nn.layers) - 1
 
@@ -110,9 +140,9 @@ func (nn *NeuralNet) BackwardPass(trainingInput []float64, trainingOutput []floa
 		layer := nn.layers[i]
 		fmt.Println("running back: ", len(inDelta), len(layer.nodes))
 		if i == numLayers {
-			inDelta = layer.BackPropInit(inDelta, nn.learningRate)
+			inDelta = layer.BackPropInit(inDelta, nn.learningRate, nn.layers[i-1])
 		} else {
-			inDelta = layer.Backprop(inDelta, nn.learningRate)
+			inDelta = layer.Backprop(inDelta, nn.learningRate, nn.getNextBackpropLayer(i, trainingInput))
 		}
 	}
 	fmt.Println("final backprop: ", len(inDelta))
