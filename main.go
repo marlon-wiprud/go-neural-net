@@ -36,11 +36,11 @@ const (
 	NUM_TRAINING_SETS = 4
 )
 
-func shuffledTrainingSetOrder() []int {
+func shuffledTrainingSetOrder(max int) []int {
 
 	trainingSetOrder := []int{}
 
-	for i := 0; i < NUM_TRAINING_SETS; i++ {
+	for i := 0; i < max; i++ {
 		trainingSetOrder = append(trainingSetOrder, i)
 	}
 
@@ -216,7 +216,7 @@ func (nn *Network) epochs() {
 }
 
 func (nn *Network) epoch() (outErrs []float64) {
-	trainingSetOrder := shuffledTrainingSetOrder()
+	trainingSetOrder := shuffledTrainingSetOrder(NUM_TRAINING_SETS)
 
 	for x := 0; x < NUM_TRAINING_SETS; x++ {
 		i := trainingSetOrder[x]

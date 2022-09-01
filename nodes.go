@@ -1,7 +1,8 @@
 package main
 
 import (
-	"fmt"
+	"log"
+	"math"
 )
 
 type Node struct {
@@ -138,53 +139,137 @@ func (nn *NeuralNet) BackwardPass(trainingInput []float64, trainingOutput []floa
 	inDelta := trainingOutput
 	for i := numLayers; i >= numLayers-1; i-- {
 		layer := nn.layers[i]
-		fmt.Println("running back: ", len(inDelta), len(layer.nodes))
+
 		if i == numLayers {
 			inDelta = layer.BackPropInit(inDelta, nn.learningRate, nn.layers[i-1])
 		} else {
 			inDelta = layer.Backprop(inDelta, nn.learningRate, nn.getNextBackpropLayer(i, trainingInput))
 		}
 	}
-	fmt.Println("final backprop: ", len(inDelta))
 }
 
-// func (nn *NeuralNet) Epoch()
+func (nn *NeuralNet) Epoch(epochNumber int, trainingInput [][]float64, trainingOutput [][]float64) {
+
+	log.Printf("running epoch %d...", epochNumber)
+	trainingOrder := shuffledTrainingSetOrder(len(trainingInput))
+
+	for i := 0; i < len(trainingOrder); i++ {
+		input := trainingInput[i]
+		output := trainingOutput[i]
+
+		nn.ForwardPass(input)
+		nn.BackwardPass(input, output)
+	}
+}
+
+func (nn *NeuralNet) Train(n int, trainingInput [][]float64, trainingOutput [][]float64) {
+	for i := 0; i < n; i++ {
+		nn.Epoch(i, trainingInput, trainingOutput)
+	}
+}
+
+func (nn *NeuralNet) OutputLayer() *Layer {
+	return nn.layers[len(nn.layers)-1]
+}
+
+func (nn *NeuralNet) Output() (output []float64) {
+	outputLayer := nn.OutputLayer()
+	for _, n := range outputLayer.nodes {
+		output = append(output, n.activation)
+	}
+	return output
+}
+
+func (nn *NeuralNet) Predict(input []float64) []float64 {
+	nn.ForwardPass(input)
+	nn.OutputLayer()
+	return nn.Output()
+}
+
+func (nn *NeuralNet) PredictSingle(idx int, input [][]float64, output [][]float64) {
+	prediction := nn.Predict(input[idx])
+	log.Printf("input: %v expected %v actual %v %v", input[idx], output[idx], math.Round(prediction[0]), prediction)
+}
+
+func (nn *NeuralNet) Test(inputs [][]float64, outputs [][]float64) {
+	nCorrect := 0
+	nIncorrect := 0
+
+	for idx, input := range inputs {
+		prediction := nn.Predict(input)
+		flooredPrediction := math.Round(prediction[0])
+		correct := flooredPrediction == outputs[idx][0]
+
+		if correct {
+			nCorrect++
+		} else {
+			nIncorrect++
+		}
+
+		log.Printf("input: %v expected %v actual %v %v", input, outputs[idx], flooredPrediction, prediction)
+	}
+
+	log.Printf("accuracy: correct %d incorrect %d", nCorrect, nIncorrect)
+}
+
+func NewNeuralNet(learningRate float64, layers []int, inputShape int) *NeuralNet {
+	var networklayers []*Layer
+
+	for layerIdx, n := range layers {
+		var nodes []*Node
+
+		for i := 0; i < n; i++ {
+			if layerIdx == 0 {
+				nodes = append(nodes, NewNode(inputShape))
+			} else {
+				nodes = append(nodes, NewNode(len(networklayers[layerIdx-1].nodes)))
+			}
+		}
+
+		networklayers = append(networklayers, &Layer{
+			nodes: nodes,
+		})
+	}
+
+	return &NeuralNet{
+		learningRate: learningRate,
+		layers:       networklayers,
+	}
+}
 
 func RunNetwork() {
 
+	input := [][]float64{
+		{0.0, 0.0},
+		{1.0, 0.0},
+		{0.0, 1.0},
+		{1.0, 1.0},
+	}
+
+	output := [][]float64{
+		{0.0},
+		{1.0},
+		{1.0},
+		{0.0},
+	}
+
 	// input := [][]float64{
-	// 	{0.0, 0.0},
-	// 	{1.0, 0.0},
-	// 	{0.0, 1.0},
-	// 	{1.0, 1.0},
+	// 	{1, 1},
+	// 	{1, 2},
+	// 	{1, 3},
+	// 	{1, 4},
 	// }
 
 	// output := [][]float64{
-	// 	{0.0},
-	// 	{1.0},
-	// 	{1.0},
-	// 	{0.0},
+	// 	{2},
+	// 	{3},
+	// 	{4},
+	// 	{5},
 	// }
 
-	nn := &NeuralNet{
-		learningRate: 0.1,
-		layers: []*Layer{
-			// hidden layer
-			{
-				nodes: []*Node{
-					NewNode(2),
-					NewNode(2),
-				},
-			},
-			// output layer
-			{
-				nodes: []*Node{
-					NewNode(2),
-				},
-			},
-		},
-	}
-
-	nn.ForwardPass([]float64{0, 0})
-	nn.BackwardPass([]float64{0, 0}, []float64{0})
+	layerConf := []int{2, 1}
+	// layerConf := []int{10, 10, 10, 10, 1}
+	nn := NewNeuralNet(0.1, layerConf, len(input[0]))
+	nn.Train(10000, input, output)
+	nn.Test(input, output)
 }
