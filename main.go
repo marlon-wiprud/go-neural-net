@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"time"
 
 	"gonum.org/v1/plot/plotter"
 )
@@ -18,15 +19,15 @@ func sigmoid(x float64) float64 {
 	return 1 / (1 + math.Exp(-x))
 }
 
+// dSigmoid is the derivative of the sigmoid fn
 func dSigmoid(x float64) float64 {
 	return x * (1 - x)
 }
 
-// TODO initialize all hidden weights
-// https://gist.github.com/espiritusanti/b7485c68a06ef2c8c76d8c62c8c39d8f#file-main-cpp-L68
 func initWeight() float64 {
-	// return 1
-	return rand.Float64()
+	randSource := rand.NewSource(time.Now().UnixNano())
+	randGen := rand.New(randSource)
+	return randGen.Float64()
 }
 
 const (
@@ -37,7 +38,6 @@ const (
 )
 
 func shuffledTrainingSetOrder(max int) []int {
-
 	trainingSetOrder := []int{}
 
 	for i := 0; i < max; i++ {

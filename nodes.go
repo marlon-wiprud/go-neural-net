@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"math"
 )
@@ -33,69 +35,80 @@ type Layer struct {
 	nodes []*Node
 }
 
-func (layer *Layer) ForwardPass(inputs []float64) []float64 {
-	var layerOutput []float64
+func (layer *Layer) ForwardPass(inputs []float64) (layerOutput []float64, err error) {
+
 	for _, node := range layer.nodes {
 
 		// compute activation based on each node weight and input value
 		activation := node.bias
 
-		// fmt.Println("node len: ", len(inputs), len(node.weights))
+		// make sure each node has the same amount of weights as the input array
+		if len(inputs) != len(node.weights) {
+			return layerOutput, errors.New("input length does not match node weights length")
+		}
+
+		// sum the activation by multiplying input by corresponding node weight
 		for idx, input := range inputs {
 			activation += input * node.weights[idx]
 		}
 
 		// set the layers activation
-		// TODO is this the proper name for this "layer activation" ?
 		node.activation = sigmoid(activation)
+
+		// create the layer output as a convenience for the next layer
 		layerOutput = append(layerOutput, node.activation)
 	}
 
-	return layerOutput
+	return layerOutput, nil
 }
 
-func (layer *Layer) BackPropInit(inDelta []float64, learningRate float64, nextLayer *Layer) (outDelta []float64) {
+func (layer *Layer) BackPropInit(inDelta []float64, learningRate float64, nextLayer *Layer) (outDelta []float64, err error) {
 
-	// loop through each node in the layer
+	if len(inDelta) != len(layer.nodes) {
+		return outDelta, errors.New("inDelta length does not match layer nodes")
+	}
+
+	// loop through each node in the output layer
 	for idx, node := range layer.nodes {
-		// create output delta values based on the nodes activation and input deltas
-		// note that this assumes that in delta is the same length as nodes
-		// TODO return error if not same lenth
-		e := inDelta[idx] - node.activation
-		d := e * dSigmoid(node.activation)
 
-		// build input for the next layer
-		outDelta = append(outDelta, d)
+		e := inDelta[idx] - node.activation    // calculate error
+		delta := e * dSigmoid(node.activation) // calculate delta
+		outDelta = append(outDelta, delta)     // build input for next layer
 
 		// apply change in output weights
-		node.bias += d * learningRate
+		node.bias += delta * learningRate
 
 		for nIdx, n := range nextLayer.nodes {
 			// assumes that node weights are same length as next layers nodes ???
-			node.weights[nIdx] += n.activation * d * learningRate
+			node.weights[nIdx] += n.activation * delta * learningRate
 		}
 	}
 
-	return outDelta
+	return outDelta, nil
 }
 
-func (layer *Layer) Backprop(inDelta []float64, learningRate float64, nextLayer *Layer) (outDelta []float64) {
+func (layer *Layer) Backprop(inDelta []float64, learningRate float64, nextLayer, previousLayer *Layer) (outDelta []float64) {
 	for _, node := range layer.nodes {
-		var err float64
 
-		// compute error
-		for idx, id := range inDelta {
-			err += id * node.weights[idx]
+		// initialize error at 0
+		var dErr float64
+
+		// loop through previous layer nodes
+		for idx, n := range previousLayer.nodes {
+			// sum the error by multiplying the previous layer delta by the previous layer's node weights
+			fmt.Println("check =>", len(inDelta), len(n.weights))
+			// TODO this isn't even toughing every node weight!
+			dErr += inDelta[idx] * n.weights[idx]
 		}
 
-		d := err * dSigmoid(node.activation)
+		delta := dErr * dSigmoid(node.activation)
+		outDelta = append(outDelta, delta)
 
-		outDelta = append(outDelta, d)
-
-		node.bias += d * learningRate
+		// apply weights
+		node.bias += delta * learningRate
 
 		for nIdx, n := range nextLayer.nodes {
-			node.weights[nIdx] += n.activation * d * learningRate
+			node.weights[nIdx] += n.activation * delta * learningRate
 		}
 	}
 
@@ -107,13 +120,20 @@ type NeuralNet struct {
 	learningRate float64
 }
 
-func (nn *NeuralNet) ForwardPass(inputs []float64) {
-	// loop through layers
+func (nn *NeuralNet) ForwardPass(inputs []float64) (err error) {
+
+	// initialize layer input as the neural network input
 	layerInput := inputs
 
 	for _, layer := range nn.layers {
-		layerInput = layer.ForwardPass(layerInput)
+		// overwrite layer inputs to pass into the next iteration
+		layerInput, err = layer.ForwardPass(layerInput)
+		if err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 func (nn *NeuralNet) getNextBackpropLayer(currentIdx int, inputs []float64) *Layer {
@@ -133,19 +153,29 @@ func (nn *NeuralNet) inputAsLayer(inputs []float64) *Layer {
 	return layer
 }
 
-func (nn *NeuralNet) BackwardPass(trainingInput []float64, trainingOutput []float64) {
+func (nn *NeuralNet) BackwardPass(trainingInput []float64, trainingOutput []float64) (err error) {
 	numLayers := len(nn.layers) - 1
 
 	inDelta := trainingOutput
+
+	// loop backwards through layers
 	for i := numLayers; i >= numLayers-1; i-- {
+		// reference current layer
 		layer := nn.layers[i]
 
 		if i == numLayers {
-			inDelta = layer.BackPropInit(inDelta, nn.learningRate, nn.layers[i-1])
+			// pass in the expected output and the next layer
+			inDelta, err = layer.BackPropInit(inDelta, nn.learningRate, nn.layers[i-1])
+			if err != nil {
+				return err
+			}
 		} else {
-			inDelta = layer.Backprop(inDelta, nn.learningRate, nn.getNextBackpropLayer(i, trainingInput))
+			// convert the training input to a layer
+			inDelta = layer.Backprop(inDelta, nn.learningRate, nn.getNextBackpropLayer(i, trainingInput), nn.layers[i+1])
 		}
 	}
+
+	return nil
 }
 
 func (nn *NeuralNet) Epoch(epochNumber int, trainingInput [][]float64, trainingOutput [][]float64) {
@@ -268,8 +298,7 @@ func RunNetwork() {
 	// }
 
 	layerConf := []int{2, 1}
-	// layerConf := []int{10, 10, 10, 10, 1}
 	nn := NewNeuralNet(0.1, layerConf, len(input[0]))
-	nn.Train(10000, input, output)
+	nn.Train(1, input, output)
 	nn.Test(input, output)
 }
