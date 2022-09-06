@@ -2,6 +2,8 @@ package matrix
 
 import (
 	"fmt"
+	"math/rand"
+	"time"
 )
 
 type Matrix struct {
@@ -42,6 +44,12 @@ func (m *Matrix) GetValue(row, column int) float64 {
 	return r[column]
 }
 
+func (m *Matrix) Copy() *Matrix {
+	z := new(Matrix)
+	*z = *m
+	return z
+}
+
 func (m *Matrix) GetColumn(column int) (col []float64) {
 	for i := 0; i < m.Rows; i++ {
 		r := m.GetRow(i)
@@ -51,28 +59,42 @@ func (m *Matrix) GetColumn(column int) (col []float64) {
 	return col
 }
 
-func (m *Matrix) Mul(x float64) {
-	m.ForEach(func(val float64) float64 {
+func (m *Matrix) Mul(x float64) *Matrix {
+	z := m.Copy()
+
+	z.ForEach(func(val float64) float64 {
 		return val * x
 	})
+
+	return z
 }
 
-func (m *Matrix) Div(x float64) {
-	m.ForEach(func(val float64) float64 {
+func (m *Matrix) Div(x float64) *Matrix {
+	z := m.Copy()
+
+	z.ForEach(func(val float64) float64 {
 		return val / x
 	})
+	return z
 }
 
-func (m *Matrix) Add(x float64) {
-	m.ForEach(func(val float64) float64 {
+func (m *Matrix) Add(x float64) *Matrix {
+	z := m.Copy()
+
+	z.ForEach(func(val float64) float64 {
 		return val + x
 	})
+	return z
 }
 
-func (m *Matrix) Sub(x float64) {
-	m.ForEach(func(val float64) float64 {
+func (m *Matrix) Sub(x float64) *Matrix {
+	z := m.Copy()
+
+	z.ForEach(func(val float64) float64 {
 		return val - x
 	})
+
+	return z
 }
 
 func (m *Matrix) Transpose() *Matrix {
@@ -97,16 +119,16 @@ func (m *Matrix) ForEachColumn(cb func([]float64)) {
 	}
 }
 
-func (m *Matrix) ForEachRow(cb func([]float64)) {
+func (m *Matrix) ForEachRow(cb func(idx int, row []float64)) {
 	for i := 0; i < m.Rows; i++ {
-		cb(m.GetRow(i))
+		cb(i, m.GetRow(i))
 	}
 }
 
 func (m *Matrix) Dot(x *Matrix) *Matrix {
 	var values []float64
 
-	m.ForEachRow(func(row []float64) {
+	m.ForEachRow(func(idx int, row []float64) {
 		x.ForEachColumn(func(col []float64) {
 			d, _ := Vector(row).Dot(col)
 			values = append(values, d)
@@ -120,16 +142,65 @@ func (m *Matrix) Dot(x *Matrix) *Matrix {
 	}
 }
 
-type Vector []float64
+func (m *Matrix) InitRandom() {
+	rand.Seed(time.Now().UnixNano())
 
-func (x Vector) Dot(y Vector) (z float64, err error) {
-	if len(x) != len(y) {
-		return z, fmt.Errorf("vectors %d %d not the same length", len(x), len(y))
+	m.ForEach(func(val float64) float64 {
+		return rand.Float64()
+	})
+}
+
+func (m *Matrix) AddMatrix(x *Matrix) (*Matrix, error) {
+
+	if x.Rows == 1 {
+		return m.AddVector(x.values), nil
 	}
 
-	for idx, val := range x {
-		z += val * y[idx]
+	if err := m.MatchDim(x); err != nil {
+		return nil, err
 	}
+
+	z := NewMatrix(m.Rows, m.Columns)
+
+	m.ForEachRow(func(idx int, xRow []float64) {
+		yRow := x.GetRow(idx)
+		zRow, _ := Vector(xRow).Add(yRow)
+		z.values = append(z.values, zRow...)
+	})
 
 	return z, nil
+}
+
+func (m *Matrix) AddVector(x Vector) *Matrix {
+	z := NewMatrix(m.Rows, m.Columns)
+
+	m.ForEachRow(func(idx int, row []float64) {
+		zRow, _ := Vector(row).Add(x)
+		z.values = append(z.values, zRow...)
+	})
+
+	return z
+}
+
+func (m *Matrix) SubMatrix(x *Matrix) (*Matrix, error) {
+	if err := m.MatchDim(x); err != nil {
+		return nil, err
+	}
+
+	z := NewMatrix(m.Rows, m.Columns)
+
+	m.ForEachRow(func(idx int, xRow []float64) {
+		yRow := x.GetRow(idx)
+		zRow, _ := Vector(xRow).Sub(yRow)
+		z.values = append(z.values, zRow...)
+	})
+
+	return z, nil
+}
+
+func (m *Matrix) MatchDim(x *Matrix) error {
+	if m.Columns != x.Columns || m.Rows != x.Rows {
+		return fmt.Errorf("shape (%d, %d) does not match (%d, %d)", m.Columns, m.Rows, x.Columns, x.Rows)
+	}
+	return nil
 }
