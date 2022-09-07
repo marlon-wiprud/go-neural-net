@@ -39,6 +39,34 @@ func (m *Matrix) GetRow(row int) []float64 {
 	return m.values[x:y]
 }
 
+func (m *Matrix) SetRow(idx int, row []float64) error {
+	if len(row) != m.Rows {
+		return fmt.Errorf("row length %d does not satisfy matrix dimension %d", len(row), m.Rows)
+	}
+
+	// starting point of row
+	x := idx * m.Columns
+	// y := (idx + 1) * m.Columns
+
+	// fill in 0's if necessary
+	if len(m.values) < x {
+		for i := len(m.values); i < x; i++ {
+			m.values = append(m.values, 0)
+		}
+	}
+
+	// loop through values and input row from 2 different starting positions
+	for i, j := 0, x; i < len(row); i, j = i+1, j+1 {
+		if len(m.values) <= j {
+			m.values = append(m.values, row[i])
+		} else {
+			m.values[j] = row[i]
+		}
+	}
+
+	return nil
+}
+
 func (m *Matrix) GetValue(row, column int) float64 {
 	r := m.GetRow(row)
 	return r[column]

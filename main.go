@@ -7,6 +7,11 @@ import (
 	"math/rand"
 	"time"
 
+	layer "go-neural-net/layers"
+	"go-neural-net/matrix"
+	_net "go-neural-net/network"
+	"go-neural-net/util"
+
 	"gonum.org/v1/plot/plotter"
 )
 
@@ -237,11 +242,33 @@ func (nn *Network) predict(input [NUM_INPUTS]float64) [NUM_OUTPUTS]float64 {
 	return nn.outputLayer
 }
 
+func solveXor() {
+
+	xTrain := matrix.NewMatrix(4, 2)
+	xTrain.SetRow(0, []float64{0, 0})
+	xTrain.SetRow(1, []float64{0, 1})
+	xTrain.SetRow(2, []float64{1, 0})
+	xTrain.SetRow(3, []float64{1, 1})
+
+	yTrain := matrix.NewMatrix(4, 1)
+	yTrain.SetRow(0, []float64{0})
+	yTrain.SetRow(1, []float64{1})
+	yTrain.SetRow(2, []float64{1})
+	yTrain.SetRow(3, []float64{0})
+
+	net := _net.NewNeuralNet(util.MSE, util.MSEPrime)
+	net.Add(layer.NewFCLayer(2, 3))
+	net.Add(layer.NewActivationLayer(math.Tanh, util.TanhPrime))
+	net.Add(layer.NewFCLayer(3, 1))
+	net.Add(layer.NewActivationLayer(math.Tanh, util.TanhPrime))
+}
+
 func main() {
+	solveXor()
 	// nn := NewNetwork(10000, 0.1)
 	// nn.initWeights()
 	// nn.epochs()
 	// outputLayer := nn.predict([NUM_INPUTS]float64{1, 1})
 	// log.Printf("predicted: %v", outputLayer)
-	RunNetwork()
+	// RunNetwork()
 }

@@ -245,3 +245,35 @@ func TestSubMatrix(t *testing.T) {
 		return val
 	})
 }
+
+func TestAddRow(t *testing.T) {
+	x := NewMatrix(2, 2)
+
+	// set the first row
+	x.SetRow(0, []float64{1, 2})
+	row := x.GetRow(0)
+	assert.Equal(t, float64(1), row[0])
+	assert.Equal(t, float64(2), row[1])
+
+	// reset the first row
+	x.SetRow(0, []float64{3, 4})
+	row = x.GetRow(0)
+	assert.Equal(t, float64(3), row[0])
+	assert.Equal(t, float64(4), row[1])
+
+	// set the second row
+	x.SetRow(1, []float64{5, 6})
+	row = x.GetRow(1)
+	assert.Equal(t, float64(5), row[0])
+	assert.Equal(t, float64(6), row[1])
+
+	// reset matrix and set second row directly
+	x = NewMatrix(2, 2)
+	x.SetRow(1, []float64{5, 6})
+	firstRow := x.GetRow(0)
+	row = x.GetRow(1)
+	assert.Equal(t, float64(0), firstRow[0])
+	assert.Equal(t, float64(0), firstRow[1])
+	assert.Equal(t, float64(5), row[0])
+	assert.Equal(t, float64(6), row[1])
+}
